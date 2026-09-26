@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#111827">
+<link rel="manifest" href="manifest.json">
+<title>Mi Dulcería</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,sans-serif;background:#f3f4f6;color:#111827}
+header{background:#111827;color:white;padding:22px 18px 18px;font-size:25px;font-weight:800}
+main{padding:14px;max-width:700px;margin:auto}.card{background:white;border-radius:16px;padding:16px;margin-bottom:14px;box-shadow:0 2px 10px #0001}
+h2{margin:0 0 12px;font-size:19px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+label{font-size:13px;font-weight:700;display:block;margin:8px 0 5px}input,select,button{width:100%;padding:13px;border-radius:10px;border:1px solid #d1d5db;font-size:16px;background:white}
+button{background:#111827;color:white;border:0;font-weight:700;margin-top:10px}button.secondary{background:#e5e7eb;color:#111827}
+.tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:14px}.tabs button{font-size:12px;margin:0;padding:10px 4px}
+.tabs button.active{background:#374151}.hidden{display:none}.result{font-size:18px;font-weight:800;padding:12px;background:#f9fafb;border-radius:10px;margin-top:10px}
+small{color:#6b7280}.item{border-top:1px solid #eee;padding:10px 0}.danger{background:#b91c1c}
+</style>
+</head>
+<body>
+<header>🍰 Mi Dulcería</header>
+<main>
+<div class="tabs">
+<button class="active" onclick="showTab('productos',this)">Productos</button>
+<button onclick="showTab('ventas',this)">Ventas</button>
+<button onclick="showTab('gastos',this)">Gastos</button>
+<button onclick="showTab('resumen',this)">Resumen</button>
+</div>
+
+<section id="productos" class="tab">
+<div class="card"><h2>Nuevo producto</h2>
+<label>Nombre</label><input id="pNombre" type="text" placeholder="Ej. Cake">
+<div class="grid">
+<div><label>Costo</label><input id="pCosto" type="number" step="0.01" inputmode="decimal" placeholder="0"></div>
+<div><label>Precio de venta</label><input id="pPrecio" type="number" step="0.01" inputmode="decimal" placeholder="0"></div>
+</div>
+<button onclick="addProduct()">Guardar producto</button>
+</div>
+<div class="card"><h2>Productos guardados</h2><div id="productList"><small>No hay productos.</small></div></div>
+</section>
+
+<section id="ventas" class="tab hidden">
+<div class="card"><h2>Nueva venta</h2>
+<label>Producto</label><select id="vProducto"></select>
+<label>Cantidad</label><input id="vCantidad" type="number" min="1" value="1" inputmode="numeric">
+<button onclick="addSale()">Guardar venta</button>
+<div id="saleMsg"></div></div>
+<div class="card"><h2>Ventas registradas</h2><div id="saleList"></div></div>
+</section>
+
+<section id="gastos" class="tab hidden">
+<div class="card"><h2>Nuevo gasto</h2>
+<label>Descripción</label><input id="gDesc" type="text" placeholder="Ej. Harina">
+<label>Importe</label><input id="gMonto" type="number" step="0.01" inputmode="decimal" placeholder="0">
+<button onclick="addExpense()">Guardar gasto</button></div>
+<div class="card"><h2>Gastos registrados</h2><div id="expenseList"></div></div>
+</section>
+
+<section id="resumen" class="tab hidden">
+<div class="card"><h2>Resumen</h2>
+<div class="result">Ventas: <span id="rVentas">0</span></div>
+<div class="result">Gastos: <span id="rGastos">0</span></div>
+<div class="result">Ganancia estimada: <span id="rGanancia">0</span></div>
+</div>
+<div class="card"><button class="secondary" onclick="exportData()">Exportar respaldo</button>
+<button class="danger" onclick="clearData()">Borrar todos los datos</button></div>
+</section>
+</main>
+<script>
+const KEY='mi_dulceria_v2';
+let db=JSON.parse(localStorage.getItem(KEY)||'{"productos":[],"ventas":[],"gastos":[]}');
+function save(){localStorage.setItem(KEY,JSON.stringify(db));render()}
+function money(n){return Number(n||0).toFixed(2)}
+function showTab(id,btn){document.querySelectorAll('.tab').forEach(x=>x.classList.add('hidden'));document.getElementById(id).classList.remove('hidden');document.querySelectorAll('.tabs button').forEach(x=>x.classList.remove('active'));btn.classList.add('active');render()}
+function addProduct(){let n=document.getElementById('pNombre').value.trim(),c=Number(document.getElementById('pCosto').value),p=Number(document.getElementById('pPrecio').value);if(!n||c<0||p<0){alert('Completa nombre, costo y precio.');return}db.productos.push({id:Date.now(),nombre:n,costo:c,precio:p});document.getElementById('pNombre').value='';document.getElementById('pCosto').value='';document.getElementById('pPrecio').value='';save()}
+function addSale(){let id=Number(document.getElementById('vProducto').value),q=Number(document.getElementById('vCantidad').value);let p=db.productos.find(x=>x.id===id);if(!p||q<1)return;db.ventas.push({fecha:new Date().toISOString(),producto:p.nombre,cantidad:q,total:p.precio*q,costo:p.costo*q});save();document.getElementById('saleMsg').innerHTML='<div class="result">Venta guardada.</div>'}
+function addExpense(){let d=document.getElementById('gDesc').value.trim(),m=Number(document.getElementById('gMonto').value);if(!d||m<0)return;db.gastos.push({fecha:new Date().toISOString(),desc:d,monto:m});document.getElementById('gDesc').value='';document.getElementById('gMonto').value='';save()}
+function render(){document.getElementById('productList').innerHTML=db.productos.length?db.productos.map(p=>`<div class="item"><b>${esc(p.nombre)}</b><br>Costo: ${money(p.costo)} · Venta: ${money(p.precio)} · Ganancia: ${money(p.precio-p.costo)}</div>`).join(''):'<small>No hay productos.</small>';document.getElementById('vProducto').innerHTML=db.productos.map(p=>`<option value="${p.id}">${esc(p.nombre)}</option>`).join('');document.getElementById('saleList').innerHTML=db.ventas.length?[...db.ventas].reverse().map(v=>`<div class="item">${esc(v.producto)} × ${v.cantidad} — ${money(v.total)}</div>`).join(''):'<small>No hay ventas.</small>';document.getElementById('expenseList').innerHTML=db.gastos.length?[...db.gastos].reverse().map(g=>`<div class="item">${esc(g.desc)} — ${money(g.monto)}</div>`).join(''):'<small>No hay gastos.</small>';let ventas=db.ventas.reduce((a,v)=>a+v.total,0),costos=db.ventas.reduce((a,v)=>a+v.costo,0),gastos=db.gastos.reduce((a,g)=>a+g.monto,0);document.getElementById('rVentas').textContent=money(ventas);document.getElementById('rGastos').textContent=money(gastos);document.getElementById('rGanancia').textContent=money(ventas-costos-gastos)}
+function esc(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
+function exportData(){let b=new Blob([JSON.stringify(db,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='respaldo_mi_dulceria.json';a.click()}
+function clearData(){if(confirm('¿Borrar todos los datos?')){db={productos:[],ventas:[],gastos:[]};save()}}
+render();
+if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
+</body></html>
